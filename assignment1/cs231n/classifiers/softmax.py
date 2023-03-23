@@ -33,23 +33,22 @@ def softmax_loss_naive(W, X, y, reg):
 
     num_classes = W.shape[1]
     num_train = X.shape[0]
-
     for i in range(num_train):
-        scores = X[i] @ W
+        scores = X[i].dot(W)
         scores -= np.max(scores)
-        sum_scores = np.sum(np.exp(scores))
-        loss -= scores[y[i]]
-        loss += np.log(sum_scores)
+        sum_i = np.sum(np.exp(scores))
+        loss += -np.log(np.exp(scores[y[i]]) / sum_i)
         for j in range(num_classes):
-            dW[:, j] += X[i] * np.exp(scores[j]) / sum_scores
+            probility = np.exp(scores[j]) / sum_i 
             if j == y[i]:
-                dW[:, j] -= X[i]
-
-    dW /= num_train
-    dW += reg * W
+                dW[:,j] += X[i] * (probility - 1)
+            else:
+                dW[:,j] += X[i] * probility
+    
     loss /= num_train
-    loss += 0.5 * reg * np.sum(W * W)
-
+    loss += reg * np.sum(W * W)
+    dW /= num_train
+    dW += 2 * reg * W
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
     return loss, dW
@@ -75,24 +74,18 @@ def softmax_loss_vectorized(W, X, y, reg):
 
     num_classes = W.shape[1]
     num_train = X.shape[0]
-
-    scores = X @ W
-    scores -= np.max(scores, axis=1,keepdims=True)
-    sum_scores = np.sum(np.exp(scores), 1)
-    loss -= np.sum(scores[np.arange(num_train), y])
-    loss += np.sum(np.log(sum_scores))
-
-    ret = np.zeros(scores.shape)
-    ret += np.exp(scores) / sum_scores.reshape(-1, 1)
-    ret[range(num_train), y] -= 1
-
-    dW += X.T @ ret
-
+    scores = X.dot(W)
+    scores -= np.max(scores, axis = 1, keepdims = True)
+    sum_scores = np.sum(np.exp(scores), axis = 1).reshape(-1,1)
+    class_prob = np.exp(scores) / sum_scores
+    loss = np.sum(-np.log(class_prob[range(num_train), y]))
+    loss += reg * np.sum(W * W)
+    
+    class_prob[range(num_train), y] -= 1
+    dW = (X.T).dot(class_prob)
     dW /= num_train
-    dW += reg * W
-    loss /= num_train
-    loss += 0.5 * reg * np.sum(W * W)
-
+    dW += 2 * reg * W
+    
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
     return loss, dW

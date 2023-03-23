@@ -71,8 +71,8 @@ class TwoLayerNet(object):
         # shape (N, C).                                                             #
         #############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-        scores = (X @ W1 + b1).clip(0) @ W2 + b2
+        X2 = np.maximum(X.dot(W1) + b1, 0)
+        scores = X2.dot(W2) + b2
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
         # If the targets are not given then jump out, we're done
@@ -89,11 +89,11 @@ class TwoLayerNet(object):
         #############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         scores -= np.max(scores, axis=1, keepdims=True)
-        loss -= np.sum(scores[range(N), y])
-        loss += np.sum(np.log(np.exp(scores).sum(1)))
-
+        sum_scores = np.sum(np.exp(scores), axis = 1).reshape(-1,1)
+        class_prob = np.exp(scores) / sum_scores
+        loss = np.sum(-np.log(class_prob[range(N), y]))
         loss /= N
-        loss += 0.5 * reg * (np.sum(W1 * W1) + np.sum(W2 * W2))
+        loss += reg * (np.sum(W1 * W1) + np.sum(W2 * W2))
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
         # Backward pass: compute gradients
@@ -105,18 +105,15 @@ class TwoLayerNet(object):
         #############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        mid = np.maximum(X @ W1 + b1, 0)
-
-        out = np.exp(scores) / np.exp(scores).sum(1, keepdims=True)
-        out[range(N), y] -= 1
-        out /= N
-        grads['b2'] = out.sum(0)
-        grads['W2'] = mid.T @ out + reg * W2
-        dh = out @ W2.T
-        dh[mid == 0] = 0
-        grads['W1'] = X.T @ dh + reg * W1
-        grads['b1'] = dh.sum(0)
-
+        class_prob[range(N), y] -= 1
+        grads['W2'] = (X2.T).dot(class_prob) / N + 2 * reg * W2
+        grads['b2'] = np.sum(class_prob, axis = 0) / N
+        
+        dh = class_prob.dot(W2.T)
+        dh[X2==0] = 0
+        grads['W1'] = (X.T).dot(dh) / N + 2 * reg * W1
+        grads['b1'] = np.sum(dh, axis = 0) / N 
+       
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
         return loss, grads
@@ -230,7 +227,7 @@ class TwoLayerNet(object):
         W1, b1 = self.params['W1'], self.params['b1']
         W2, b2 = self.params['W2'], self.params['b2']
 
-        y_pred = np.argmax(np.maximum(X @ W1 + b1, 0) @ W2 + b2, 1)
+        y_pred = np.argmax(np.maximum(X.dot(W1) + b1, 0).dot(W2) + b2, axis = 1)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
